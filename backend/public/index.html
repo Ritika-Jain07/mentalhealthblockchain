@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>🧠 Mental Health Secure Dashboard</title>
+
+<!-- Font -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+*{
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+  font-family:'Inter',sans-serif;
+}
+
+body{
+  background:linear-gradient(135deg,#0f172a,#1e293b);
+  color:#fff;
+  padding:30px;
+}
+
+h2{
+  text-align:center;
+  margin-bottom:30px;
+}
+
+.container{
+  display:grid;
+  grid-template-columns: repeat(auto-fit,minmax(320px,1fr));
+  gap:20px;
+}
+
+.card{
+  background:rgba(255,255,255,0.05);
+  border-radius:20px;
+  padding:20px;
+  backdrop-filter:blur(10px);
+}
+
+input,select{
+  width:100%;
+  padding:12px;
+  margin-top:8px;
+  border-radius:10px;
+  border:none;
+  background:#1e293b;
+  color:white;
+}
+
+button{
+  margin-top:10px;
+  padding:12px;
+  border:none;
+  border-radius:10px;
+  background:linear-gradient(135deg,#6366f1,#8b5cf6);
+  color:white;
+  cursor:pointer;
+}
+
+button:hover{opacity:0.8;}
+
+.status{
+  margin-top:10px;
+  padding:8px;
+  border-radius:20px;
+}
+
+.ok{background:#22c55e;}
+.no{background:#ef4444;}
+
+pre{
+  margin-top:10px;
+  background:#020617;
+  padding:10px;
+  border-radius:10px;
+  font-size:12px;
+  overflow:auto;
+}
+</style>
+</head>
+
+<body>
+
+<h2>🧠 Mental Health Secure Access & Audit Dashboard</h2>
+
+<div class="container">
+
+<!-- ACCESS -->
+<div class="card">
+<h3>🔐 Access Control</h3>
+
+<label>Wallet</label>
+<input id="address" placeholder="Enter wallet">
+
+<button onclick="grantAccess()">Grant</button>
+<button onclick="revokeAccess()">Revoke</button>
+
+<p id="status"></p>
+</div>
+
+<!-- FETCH -->
+<div class="card">
+<h3>📄 Fetch Record</h3>
+
+<label>Record ID</label>
+<input id="recordId" value="1">
+
+<label>Purpose</label>
+<select id="purpose">
+<option value="therapy">Therapy</option>
+<option value="research">Research</option>
+<option value="emergency">Emergency</option>
+</select>
+
+<button onclick="fetchRecord()">Fetch</button>
+
+<pre id="output">{}</pre>
+</div>
+
+<!-- AUDIT -->
+<div class="card">
+<h3>📊 Audit Logs</h3>
+
+<button onclick="auditLogs()">Load Logs</button>
+
+<pre id="audit">{}</pre>
+
+<canvas id="auditChart"></canvas>
+</div>
+
+</div>
+
+<script>
+const output = document.getElementById("output");
+const audit = document.getElementById("audit");
+const status = document.getElementById("status");
+
+let chart;
+
+// STATUS
+function setStatus(ok,msg){
+  status.innerHTML = `<span class="status ${ok?'ok':'no'}">
+  ${ok?'GRANTED':'DENIED'} ${msg}</span>`;
+}
+
+// GRANT
+async function grantAccess(){
+  const address=document.getElementById("address").value.trim();
+
+  const res=await fetch("/api/grant-access",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({user:address})
+  });
+
+  const data=await res.json();
+  data.success ? setStatus(true,"Access granted") : setStatus(false,"Failed");
+}
+
+// REVOKE
+async function revokeAccess(){
+  const address=document.getElementById("address").value.trim();
+
+  const res=await fetch("/api/revoke-access",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({user:address})
+  });
+
+  await res.json();
+  setStatus(false,"Access revoked");
+}
+
+// FETCH RECORD
+async function fetchRecord(){
+  const id=document.getElementById("recordId").value;
+  const p=document.getElementById("purpose").value;
+  const addr=document.getElementById("address").value.trim();
+
+  let purpose = p==="therapy"?1:p==="research"?2:3;
+
+  const res=await fetch(`/api/record/${id}?purpose=${purpose}&from=${addr}`);
+  const data=await res.json();
+
+  output.textContent=JSON.stringify(data,null,2);
+
+  data.granted ? setStatus(true,"Access allowed") : setStatus(false,"Denied");
+}
+
+// AUDIT + CHART
+async function auditLogs(){
+  const res=await fetch("/api/audit/stats");
+  const data=await res.json();
+
+  audit.textContent=JSON.stringify(data,null,2);
+
+  const total = Number(data.totalLogs || 0);
+  const granted = data.lastAccess?.granted ? 1 : 0;
+  const denied = total - granted;
+
+  const ctx=document.getElementById("auditChart").getContext("2d");
+
+  if(chart) chart.destroy();
+
+  chart=new Chart(ctx,{
+    type:"bar",
+    data:{
+      labels:["Total","Granted","Denied"],
+      datasets:[{
+        label:"Audit Activity",
+        data:[total,granted,denied]
+      }]
+    }
+  });
+}
+</script>
+
+</body>
+</html>
