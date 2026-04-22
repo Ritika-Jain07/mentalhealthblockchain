@@ -30,17 +30,10 @@ A secure and transparent system for managing mental health records using blockch
 
 ## 📸 Screenshots
 
-### 🖥️ Dashboard
-![Dashboard](src/assets/1.png)
-
-### 🔑 Access Control
-![Access Control](src/assets/2.png)
-
-### 📊 Audit Logs
-![Audit Logs](src/assets/3.png)
-
-### ⚙️ Smart Contract Interaction
-![Smart Contract](src/assets/4.png)
+![Dashboard](backend/src/assets/1.png)
+![Access Control](backend/src/assets/2.png)
+![Audit Logs](backend/src/assets/3.png)
+![Smart Contract](backend/src/assets/4.png)
 
 ---
 
