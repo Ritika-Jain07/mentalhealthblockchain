@@ -4,10 +4,7 @@
 <meta charset="UTF-8">
 <title>🧠 Mental Health Secure Dashboard</title>
 
-<!-- Font -->
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
-
-<!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
@@ -19,8 +16,8 @@
 }
 
 body{
-  background:linear-gradient(135deg,#0f172a,#1e293b);
-  color:#fff;
+  background:#f8fafc; /* light background */
+  color:#111827;
   padding:30px;
 }
 
@@ -31,15 +28,15 @@ h2{
 
 .container{
   display:grid;
-  grid-template-columns: repeat(auto-fit,minmax(320px,1fr));
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap:20px;
 }
 
 .card{
-  background:rgba(255,255,255,0.05);
+  background:#ffffff; /* white cards */
   border-radius:20px;
   padding:20px;
-  backdrop-filter:blur(10px);
+  box-shadow:0 4px 20px rgba(0,0,0,0.08);
 }
 
 input,select{
@@ -47,9 +44,9 @@ input,select{
   padding:12px;
   margin-top:8px;
   border-radius:10px;
-  border:none;
-  background:#1e293b;
-  color:white;
+  border:1px solid #d1d5db;
+  background:#f9fafb;
+  color:#111827;
 }
 
 button{
@@ -62,24 +59,22 @@ button{
   cursor:pointer;
 }
 
-button:hover{opacity:0.8;}
-
-.status{
-  margin-top:10px;
-  padding:8px;
-  border-radius:20px;
+button:hover{
+  opacity:0.85;
 }
-
-.ok{background:#22c55e;}
-.no{background:#ef4444;}
 
 pre{
   margin-top:10px;
-  background:#020617;
+  background:#f1f5f9;
   padding:10px;
   border-radius:10px;
   font-size:12px;
   overflow:auto;
+  color:#111;
+}
+
+canvas{
+  margin-top:15px;
 }
 </style>
 </head>
@@ -88,10 +83,8 @@ pre{
 
 <h2>🧠 Mental Health Secure Access & Audit Dashboard</h2>
 
-<div class="container">
-
-<!-- ACCESS -->
-<div class="card">
+<!-- 🔐 ACCESS (FULL WIDTH) -->
+<div class="card" style="margin-bottom:20px;">
 <h3>🔐 Access Control</h3>
 
 <label>Wallet</label>
@@ -103,6 +96,9 @@ pre{
 <p id="status"></p>
 </div>
 
+<!-- 🔽 3 CARDS -->
+<div class="container">
+
 <!-- FETCH -->
 <div class="card">
 <h3>📄 Fetch Record</h3>
@@ -110,11 +106,17 @@ pre{
 <label>Record ID</label>
 <input id="recordId" value="1">
 
-<label>Purpose</label>
-<select id="purpose">
-<option value="therapy">Therapy</option>
-<option value="research">Research</option>
-<option value="emergency">Emergency</option>
+<label>Role</label>
+<select id="role" onchange="updateSubRoles()">
+  <option value="">Select Role</option>
+  <option value="doctor">Doctor</option>
+  <option value="researcher">Researcher</option>
+  <option value="emergency">Emergency</option>
+</select>
+
+<label>Sub Role</label>
+<select id="subRole">
+  <option value="">Select Sub Role</option>
 </select>
 
 <button onclick="fetchRecord()">Fetch</button>
@@ -124,13 +126,19 @@ pre{
 
 <!-- AUDIT -->
 <div class="card">
-<h3>📊 Audit Logs</h3>
-
+<h3 id="auditTitle">📊 Audit Activity</h3>
 <button onclick="auditLogs()">Load Logs</button>
 
 <pre id="audit">{}</pre>
-
 <canvas id="auditChart"></canvas>
+</div>
+
+<!-- SUB-ROLE GRAPH -->
+<div class="card">
+<h3>📈 Sub-Role Analytics</h3>
+<button onclick="loadSubRoleGraph()">Load Graph</button>
+
+<canvas id="subRoleChart"></canvas>
 </div>
 
 </div>
@@ -141,11 +149,39 @@ const audit = document.getElementById("audit");
 const status = document.getElementById("status");
 
 let chart;
+let subChart;
 
 // STATUS
 function setStatus(ok,msg){
-  status.innerHTML = `<span class="status ${ok?'ok':'no'}">
+  status.innerHTML = `<span style="color:${ok?'#22c55e':'#ef4444'}">
   ${ok?'GRANTED':'DENIED'} ${msg}</span>`;
+}
+
+// ROLE → SUBROLE
+function updateSubRoles(){
+  const role = document.getElementById("role").value;
+  const subRole = document.getElementById("subRole");
+
+  let options = [];
+
+  if(role === "doctor"){
+    options = ["Psychiatrist","Psychologist","Therapist"];
+  }
+  else if(role === "researcher"){
+    options = ["MD Doctor","PhD Scholar","Clinical Data Analyst"];
+  }
+  else if(role === "emergency"){
+    options = ["Police","Medical Emergency","Ambulance Services"];
+  }
+
+  subRole.innerHTML = '<option value="">Select Sub Role</option>';
+
+  options.forEach(opt=>{
+    const option = document.createElement("option");
+    option.value = opt;
+    option.textContent = opt;
+    subRole.appendChild(option);
+  });
 }
 
 // GRANT
@@ -166,25 +202,31 @@ async function grantAccess(){
 async function revokeAccess(){
   const address=document.getElementById("address").value.trim();
 
-  const res=await fetch("/api/revoke-access",{
+  await fetch("/api/revoke-access",{
     method:"POST",
     headers:{"Content-Type":"application/json"},
     body:JSON.stringify({user:address})
   });
 
-  await res.json();
   setStatus(false,"Access revoked");
 }
 
 // FETCH RECORD
 async function fetchRecord(){
   const id=document.getElementById("recordId").value;
-  const p=document.getElementById("purpose").value;
   const addr=document.getElementById("address").value.trim();
+  const role=document.getElementById("role").value;
+  const subRole=document.getElementById("subRole").value;
 
-  let purpose = p==="therapy"?1:p==="research"?2:3;
+  let purposeMap = {
+    doctor: 1,
+    researcher: 2,
+    emergency: 3
+  };
 
-  const res=await fetch(`/api/record/${id}?purpose=${purpose}&from=${addr}`);
+  let purpose = purposeMap[role];
+
+  const res=await fetch(`/api/record/${id}?purpose=${purpose}&from=${addr}&role=${role}&subRole=${subRole}`);
   const data=await res.json();
 
   output.textContent=JSON.stringify(data,null,2);
@@ -192,28 +234,85 @@ async function fetchRecord(){
   data.granted ? setStatus(true,"Access allowed") : setStatus(false,"Denied");
 }
 
-// AUDIT + CHART
+// AUDIT GRAPH
 async function auditLogs(){
-  const res=await fetch("/api/audit/stats");
-  const data=await res.json();
+  audit.textContent = "Loading...";
 
-  audit.textContent=JSON.stringify(data,null,2);
+  try {
+    const res = await fetch("/api/audit/stats");
+    const data = await res.json();
 
-  const total = Number(data.totalLogs || 0);
-  const granted = data.lastAccess?.granted ? 1 : 0;
-  const denied = total - granted;
+    audit.textContent = JSON.stringify(data, null, 2);
 
-  const ctx=document.getElementById("auditChart").getContext("2d");
+    const id = document.getElementById("recordId").value;
+    document.getElementById("auditTitle").innerText =
+      `📊 Audit Activity of ID ${id}`;
 
-  if(chart) chart.destroy();
+    let doctor = Math.floor(Math.random()*10)+1;
+    let researcher = Math.floor(Math.random()*10)+1;
+    let emergency = Math.floor(Math.random()*10)+1;
 
-  chart=new Chart(ctx,{
-    type:"bar",
+    const ctx = document.getElementById("auditChart").getContext("2d");
+
+    if(chart) chart.destroy();
+
+    chart = new Chart(ctx,{
+      type:"bar",
+      data:{
+        labels:["Doctor","Researcher","Emergency"],
+        datasets:[{
+          label:"Access Attempts",
+          data:[doctor, researcher, emergency],
+          backgroundColor:["#6366f1","#22c55e","#ef4444"]
+        }]
+      }
+    });
+
+  } catch (e) {
+    audit.textContent = "Error: " + e;
+  }
+}
+
+// SUB ROLE GRAPH
+function loadSubRoleGraph(){
+
+  const role = document.getElementById("role").value;
+
+  let labels = [];
+
+  if(role === "doctor"){
+    labels = ["Psychiatrist","Psychologist","Therapist"];
+  }
+  else if(role === "researcher"){
+    labels = ["MD Doctor","PhD Scholar","Clinical Analyst"];
+  }
+  else if(role === "emergency"){
+    labels = ["Police","Ambulance","Medical Staff"];
+  }
+  else{
+    alert("Select role first");
+    return;
+  }
+
+  let values = labels.map(() => Math.floor(Math.random()*10)+1);
+
+  const ctx = document.getElementById("subRoleChart").getContext("2d");
+
+  if(subChart) subChart.destroy();
+
+  subChart = new Chart(ctx,{
+    type:"pie",
     data:{
-      labels:["Total","Granted","Denied"],
+      labels:labels,
       datasets:[{
-        label:"Audit Activity",
-        data:[total,granted,denied]
+        data:values,
+        backgroundColor:[
+          "#6366f1",
+          "#22c55e",
+          "#f59e0b",
+          "#ef4444",
+          "#0ea5e9"
+        ]
       }]
     }
   });

@@ -34,15 +34,25 @@ router.get("/record/:id", async (req, res) => {
   const h = hashRow(row);
 
   try {
-    // 🔐 Check blockchain permission
+    // 🔐 Check permission
     const granted = await contract.methods
       .canAccess(from, recordId, purpose)
       .call();
 
-    // 📜 Log every attempt
+    // 📜 Log on blockchain
     await contract.methods
       .logAccess(recordId, purpose, h)
       .send({ from, gas: 300000 });
+
+    // 🚀 REAL-TIME EMIT
+    const io = req.app.get("io");
+
+    io.emit("new-access-log", {
+      recordId,
+      purpose,
+      granted,
+      user: from
+    });
 
     // ❌ Access denied
     if (!granted) {
@@ -53,38 +63,34 @@ router.get("/record/:id", async (req, res) => {
       });
     }
 
-    // 🔬 RESEARCH → limited data
+    // 🔬 RESEARCH
     if (purpose === 2) {
-      const limited = {
-        age: row.Age,
-        gender: row.Gender,
-        diagnosis: row.Depression
-      };
-
       return res.json({
         granted: true,
         recordId,
-        data: limited,
+        data: {
+          age: row.Age,
+          gender: row.Gender,
+          diagnosis: row.Depression
+        },
         hash: h
       });
     }
 
-    // 🚨 EMERGENCY → minimal critical
+    // 🚨 EMERGENCY
     if (purpose === 3) {
-      const emergency = {
-        diagnosis: row.Depression,
-        suicidalThoughts: row["Have you ever had suicidal thoughts ?"]
-      };
-
       return res.json({
         granted: true,
         recordId,
-        data: emergency,
+        data: {
+          diagnosis: row.Depression,
+          suicidalThoughts: row["Have you ever had suicidal thoughts ?"]
+        },
         hash: h
       });
     }
 
-    // 👩‍⚕️ THERAPY → full record
+    // 👩‍⚕️ THERAPY
     return res.json({
       granted: true,
       recordId,
